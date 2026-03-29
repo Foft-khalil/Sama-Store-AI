@@ -1,0 +1,25 @@
+# Koyeb Deployment Configuration
+# More info: https://www.koyeb.com/docs/deployment/configuration-file
+
+name: sama-store-ai
+services:
+  - name: web
+    type: web
+    image: .
+    instance_type: nano
+    regions:
+      - fra # Europe (Frankfurt) is usually best for Senegal
+    routes:
+      - path: /
+        port: 80
+    env:
+      - key: APP_ENV
+        value: production
+      - key: APP_DEBUG
+        value: "false"
+      - key: DB_CONNECTION
+        value: mysql
+      - key: DB_PORT
+        value: "3306"
+      - key: WHATSAPP_VERIFY_TOKEN
+        value: sama_store_secret_token
