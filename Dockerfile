@@ -7,6 +7,7 @@ RUN apt-get update && apt-get install -y \
     libjpeg-dev \
     libfreetype6-dev \
     libzip-dev \
+    libicu-dev \
     unzip \
     git \
     nodejs \
@@ -19,6 +20,10 @@ RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
 
 # Enable Apache mod_rewrite
 RUN a2enmod rewrite
+
+# Change Apache to listen on 8080
+RUN sed -i 's/Listen 80/Listen 8080/' /etc/apache2/ports.conf
+RUN sed -i 's/:80/:8080/' /etc/apache2/sites-available/000-default.conf
 
 # Set the document root to Laravel's public folder
 ENV APACHE_DOCUMENT_ROOT /var/www/html/public
@@ -44,8 +49,8 @@ RUN npm install && npm run build
 RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache
 RUN chmod +x /var/www/html/docker-entrypoint.sh
 
-# Expose port 80
-EXPOSE 80
+# Expose port 8080
+EXPOSE 8080
 
 # Use entrypoint
 ENTRYPOINT ["/var/www/html/docker-entrypoint.sh"]
