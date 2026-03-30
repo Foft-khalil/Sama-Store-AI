@@ -151,43 +151,48 @@ class WhatsAppWebhookController extends Controller
     }
 
     /**
-     * Calls GPT-4o Vision to extract structured JSON data from product image
+     * Calls Google Gemini API (1.5 Flash) to extract structured JSON data from product image
+     * This replaces the paid OpenAI model with a free alternative.
      */
     protected function extractProductDetailsWithOpenAI($base64Image, $from)
     {
-        Log::info("Step 5: Sending request to OpenAI GPT-4o Vision...");
+        Log::info("Step 5: Sending request to Google Gemini API...");
         try {
-            $apiKey = env('OPENAI_API_KEY');
-            if (!$apiKey || $apiKey === 'votre_cle_api_openai_ici') {
-                throw new \Exception("Clé OpenAI absente ou non configurée dans le fichier .env");
+            $apiKey = env('GEMINI_API_KEY');
+            if (!$apiKey) {
+                throw new \Exception("Clé GEMINI_API_KEY absente du fichier .env");
             }
 
-            $response = \OpenAI\Laravel\Facades\OpenAI::chat()->create([
-                'model' => 'gpt-4o-mini',
-                'messages' => [
+            // Target Gemini 1.5 Flash for the free tier
+            $url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={$apiKey}";
+
+            $response = \Illuminate\Support\Facades\Http::post($url, [
+                "contents" => [
                     [
-                        'role' => 'user',
-                        'content' => [
+                        "parts" => [
+                            ["text" => "Tu es un expert en e-commerce. Analyse cette image de produit. Extrait le nom du produit, une catégorie, une description courte et vendeuse en français, et le prix (nombre entier uniquement). Retourne UNIQUEMENT du JSON valide : {\"name\": \"...\", \"category\": \"...\", \"description\": \"...\", \"price\": 5000}"],
                             [
-                                'type' => 'text',
-                                'text' => "Tu es un expert en e-commerce. Analyse cette image de produit. Extrait le nom du produit, une catégorie, une description en français, et le prix (nombre entier uniquement). Retourne UNIQUEMENT du JSON : {\"name\": \"...\", \"category\": \"...\", \"description\": \"...\", \"price\": 1000}"
-                            ],
-                            [
-                                'type' => 'image_url',
-                                'image_url' => [
-                                    'url' => "data:image/jpeg;base64,{$base64Image}",
+                                "inline_data" => [
+                                    "mime_type" => "image/jpeg",
+                                    "data" => $base64Image
                                 ]
                             ]
                         ]
                     ]
                 ],
-                'max_tokens' => 500,
+                "generationConfig" => [
+                    "response_mime_type" => "application/json",
+                ]
             ]);
 
-            $jsonString = $response->choices[0]->message->content;
-            Log::info("Step 6: OpenAI Response received: " . $jsonString);
+            if (!$response->successful()) {
+                throw new \Exception("Gemini API Error: " . $response->body());
+            }
+
+            $result = $response->json();
+            $jsonString = $result['candidates'][0]['content']['parts'][0]['text'] ?? '{}';
+            Log::info("Step 6: Gemini Response received: " . $jsonString);
             
-            $jsonString = str_replace(['```json', '```'], '', $jsonString);
             $productData = json_decode(trim($jsonString), true);
             
             if (is_array($productData)) {
@@ -220,11 +225,11 @@ class WhatsAppWebhookController extends Controller
             }
 
         } catch (\Exception $e) {
-            Log::error("Step 5/6 ERROR: OpenAI API failed: " . $e->getMessage());
+            Log::error("Step 5/6 ERROR: Gemini API failed: " . $e->getMessage());
             $token = env('WHATSAPP_TOKEN');
             $phoneNumberId = env('WHATSAPP_PHONE_NUMBER_ID');
             if ($token && $phoneNumberId) {
-                $errorMsg = "⚠️ *Erreur d'Analyse*\n\nLe service OpenAI a répondu : \"" . $e->getMessage() . "\".\n\nVérifiez votre crédit OpenAI ou réessayez plus tard.";
+                $errorMsg = "⚠️ *Erreur d'Analyse (Gemini)*\n\nLe service a répondu : \"" . $e->getMessage() . "\".\n\nVérifiez votre clé API Gemini ou réessayez.";
                 $this->sendWhatsAppMessage($from, $errorMsg, $token, $phoneNumberId);
             }
         }
