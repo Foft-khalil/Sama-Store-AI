@@ -189,6 +189,21 @@ class WhatsAppWebhookController extends Controller
             $productData = json_decode(trim($jsonString), true);
             
             Log::info("AI Product Analysis Result for {$from}: ", $productData ?? []);
+            if (is_array($productData)) {
+                $store = \App\Models\Store::firstOrCreate(
+                    ['whatsapp_number' => $from],
+                    [
+                        'name' => "Boutique de {$from}",
+                        'trial_ends_at' => now()->addDays(7)
+                    ]
+                );
+
+                $product = $store->products()->create([
+                    'name' => $productData['name'] ?? 'Produit',
+                    'category' => $productData['category'] ?? null,
+                    'description' => $productData['description'] ?? null,
+                    'price' => isset($productData['price']) && is_numeric($productData['price']) ? (int) $productData['price'] : null,
+                ]);
 
                 Log::info("Produit sauvegardé : Boutique {$store->id} - Produit ID: {$product->id}");
 
