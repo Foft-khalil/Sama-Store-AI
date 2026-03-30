@@ -68,7 +68,7 @@ class WhatsAppWebhookController extends Controller
     /**
      * Process an individual message (e.g. image or text)
      */
-    protected function processMessage($message)
+    protected function processMessage(array $message): void
     {
         $messageType = $message['type'] ?? 'unknown';
         $from = $message['from'] ?? 'unknown';
@@ -91,33 +91,17 @@ class WhatsAppWebhookController extends Controller
             $token = env('WHATSAPP_TOKEN');
             $phoneNumberId = env('WHATSAPP_PHONE_NUMBER_ID');
 
-            if ($token && $phoneNumberId) {
-                if ($textBody === 'salut' || $textBody === 'bonjour') {
-                    $this->sendWhatsAppMessage($from, "👋 Bonjour ! Je suis l'IA de Sama-Store. Envoyez-moi une photo pour créer votre produit.", $token, $phoneNumberId);
-                } elseif ($textBody === 'models') {
-                    // Temporary debug command to get all active Groq models for this API key
-                    try {
-                        $apiKey = env('GROQ_API_KEY');
-                        $apiResponse = \Illuminate\Support\Facades\Http::withToken($apiKey)->get("https://api.groq.com/openai/v1/models");
-                        $modelsArray = $apiResponse->json()['data'] ?? [];
-                        $visionModels = [];
-                        foreach ($modelsArray as $m) {
-                            if (strpos(strtolower($m['id']), 'vision') !== false || strpos(strtolower($m['id']), 'llama-3.2') !== false || strpos(strtolower($m['id']), 'llama-4') !== false) {
-                                $visionModels[] = $m['id'];
-                            }
-                        }
-                        $listStr = empty($visionModels) ? "Aucun modèle Vision trouvé." : implode("\n- ", $visionModels);
-                        $this->sendWhatsAppMessage($from, "🤖 *Modèles Groq Actifs* :\n- " . $listStr, $token, $phoneNumberId);
-                    } catch (\Exception $e) {
-                        $this->sendWhatsAppMessage($from, "Erreur API Groq : " . $e->getMessage(), $token, $phoneNumberId);
-                    }
-                } elseif ($store && ($textBody === 'catalogue' || $textBody === 'lien' || $textBody === 'boutique')) {
+            if ($store && $token && $phoneNumberId) {
+                if ($textBody === 'catalogue' || $textBody === 'lien' || $textBody === 'boutique') {
                     $storeUrl = url("/s/" . ($store->slug ?? $store->whatsapp_number));
                     $this->sendWhatsAppMessage($from, "🛒 *Votre Boutique est prête !*\n\n👉 Voici le lien exclusif de votre catalogue : {$storeUrl}\n\n*Partagez ce lien à vos clients sur Instagram, WhatsApp, ou Facebook pour recevoir des commandes directes !*", $token, $phoneNumberId);
                 } 
-                elseif ($store && ($textBody === 'commandes' || $textBody === 'dashboard')) {
+                elseif ($textBody === 'commandes' || $textBody === 'dashboard') {
                     $dashboardUrl = route('login');
                     $this->sendWhatsAppMessage($from, "📊 *Sama-Store Backoffice*\n\nPour gérer vos commandes et vérifier vos statistiques, accédez à votre espace sécurisé ici :\n👉 {$dashboardUrl}\n\n(_Identifiant : {$from}_)", $token, $phoneNumberId);
+                }
+                elseif ($textBody === 'salut' || $textBody === 'bonjour') {
+                    $this->sendWelcomeMessage($from, $token, $phoneNumberId);
                 }
                 else {
                     $this->sendWhatsAppMessage($from, "👋 Bonjour ! Je suis l'IA de Sama-Store.\n\n📸 *Pour ajouter un produit :* Envoyez-moi simplement une photo de votre article.\n\n⚙️ *Commandes Menu :*\n- Écrivez *Catalogue* : Pour obtenir le lien de votre boutique\n- Écrivez *Commandes* : Pour accéder à votre tableau de bord", $token, $phoneNumberId);
@@ -125,7 +109,11 @@ class WhatsAppWebhookController extends Controller
             } else {
                 // If it's a new user texting without creating a store via image first
                 if ($token && $phoneNumberId) {
-                    $this->sendWhatsAppMessage($from, "👋 Bienvenue sur Sama-Store AI, votre créateur de e-boutique !\n\n📸 Pour commencer, envoyez-moi une photo d'un produit que vous vendez. Mon intelligence artificielle va l'analyser et créer votre site e-commerce instantanément ! 🚀", $token, $phoneNumberId);
+                    if ($textBody === 'salut' || $textBody === 'bonjour') {
+                        $this->sendWelcomeMessage($from, $token, $phoneNumberId);
+                    } else {
+                        $this->sendWhatsAppMessage($from, "👋 Bienvenue sur Sama-Store AI, votre créateur de e-boutique !\n\n📸 Pour commencer, envoyez-moi une photo d'un produit que vous vendez. Mon intelligence artificielle va l'analyser et créer votre site e-commerce instantanément ! 🚀", $token, $phoneNumberId);
+                    }
                 }
             }
         }
@@ -134,7 +122,7 @@ class WhatsAppWebhookController extends Controller
     /**
      * Fetch the image from WhatsApp, convert to base64, and send to OpenAI
      */
-    protected function analyzeProductImage($imageId, $from)
+    protected function analyzeProductImage(string $imageId, string $from): void
     {
         Log::info("Step 1: Starting image analysis for ID: {$imageId}");
         try {
@@ -173,7 +161,7 @@ class WhatsAppWebhookController extends Controller
      * Calls Groq API (Llama 3.2 90B Vision) to extract structured JSON data from product image
      * This provides a 100% free, blazingly fast alternative that works everywhere.
      */
-    protected function extractProductDetailsWithOpenAI($base64Image, $from)
+    protected function extractProductDetailsWithOpenAI(string $base64Image, string $from): void
     {
         Log::info("Step 5: Sending request to Groq API (Llama 3.2 Vision)...");
         try {
@@ -260,9 +248,9 @@ class WhatsAppWebhookController extends Controller
     }
 
     /**
-     * Helper to send outbound WhatsApp text messages
+     * Wrapper to send text messages via WhatsApp Graph API
      */
-    protected function sendWhatsAppMessage($to, $text, $token, $phoneNumberId)
+    protected function sendWhatsAppMessage(string $to, string $text, string $token, string $phoneNumberId): void
     {
         try {
             $response = \Illuminate\Support\Facades\Http::withToken($token)
@@ -279,7 +267,15 @@ class WhatsAppWebhookController extends Controller
                 Log::error("Failed to send WhatsApp message to {$to}. Meta Response: " . $response->body());
             }
         } catch (\Exception $e) {
-            Log::error("Failed to send WhatsApp message: " . $e->getMessage());
+            Log::error("WhatsApp API Request Failed: " . $e->getMessage());
         }
+    }
+
+    /**
+     * Send the standard welcome message.
+     */
+    protected function sendWelcomeMessage(string $to, string $token, string $phoneNumberId): void
+    {
+        $this->sendWhatsAppMessage($to, "👋 Bienvenue sur Sama-Store AI, votre créateur de e-boutique !\n\n📸 Pour commencer, envoyez-moi une photo d'un produit que vous vendez. Mon intelligence artificielle va l'analyser et créer votre site e-commerce instantanément ! 🚀", $token, $phoneNumberId);
     }
 }
