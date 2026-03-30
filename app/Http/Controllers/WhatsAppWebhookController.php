@@ -220,13 +220,19 @@ class WhatsAppWebhookController extends Controller
     protected function sendWhatsAppMessage($to, $text, $token, $phoneNumberId)
     {
         try {
-            \Illuminate\Support\Facades\Http::withToken($token)
+            $response = \Illuminate\Support\Facades\Http::withToken($token)
                 ->post("https://graph.facebook.com/v19.0/{$phoneNumberId}/messages", [
                     'messaging_product' => 'whatsapp',
                     'to' => $to,
                     'type' => 'text',
                     'text' => ['body' => $text],
                 ]);
+            
+            if ($response->successful()) {
+                Log::info("WhatsApp message sent successfully to {$to}");
+            } else {
+                Log::error("Failed to send WhatsApp message to {$to}. Meta Response: " . $response->body());
+            }
         } catch (\Exception $e) {
             Log::error("Failed to send WhatsApp message: " . $e->getMessage());
         }
