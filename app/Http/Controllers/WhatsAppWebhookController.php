@@ -84,19 +84,38 @@ class WhatsAppWebhookController extends Controller
                 $this->analyzeProductImage($imageId, $from);
             }
         } elseif ($messageType === 'text') {
-            $text = trim(strtolower($message['text']['body'] ?? ''));
-            Log::info("Text message from {$from}: {$text}");
+            $textBody = trim(strtolower($message['text']['body'] ?? ''));
+            Log::info("Text message from {$from}: {$textBody}");
             
             $store = \App\Models\Store::where('whatsapp_number', $from)->first();
             $token = env('WHATSAPP_TOKEN');
             $phoneNumberId = env('WHATSAPP_PHONE_NUMBER_ID');
 
-            if ($store && $token && $phoneNumberId) {
-                if ($text === 'catalogue' || $text === 'lien' || $text === 'boutique') {
+            if ($token && $phoneNumberId) {
+                if ($textBody === 'salut' || $textBody === 'bonjour') {
+                    $this->sendWhatsAppMessage($from, "👋 Bonjour ! Je suis l'IA de Sama-Store. Envoyez-moi une photo pour créer votre produit.", $token, $phoneNumberId);
+                } elseif ($textBody === 'models') {
+                    // Temporary debug command to get all active Groq models for this API key
+                    try {
+                        $apiKey = env('GROQ_API_KEY');
+                        $apiResponse = \Illuminate\Support\Facades\Http::withToken($apiKey)->get("https://api.groq.com/openai/v1/models");
+                        $modelsArray = $apiResponse->json()['data'] ?? [];
+                        $visionModels = [];
+                        foreach ($modelsArray as $m) {
+                            if (strpos(strtolower($m['id']), 'vision') !== false || strpos(strtolower($m['id']), 'llama-3.2') !== false || strpos(strtolower($m['id']), 'llama-4') !== false) {
+                                $visionModels[] = $m['id'];
+                            }
+                        }
+                        $listStr = empty($visionModels) ? "Aucun modèle Vision trouvé." : implode("\n- ", $visionModels);
+                        $this->sendWhatsAppMessage($from, "🤖 *Modèles Groq Actifs* :\n- " . $listStr, $token, $phoneNumberId);
+                    } catch (\Exception $e) {
+                        $this->sendWhatsAppMessage($from, "Erreur API Groq : " . $e->getMessage(), $token, $phoneNumberId);
+                    }
+                } elseif ($store && ($textBody === 'catalogue' || $textBody === 'lien' || $textBody === 'boutique')) {
                     $storeUrl = url("/s/" . ($store->slug ?? $store->whatsapp_number));
                     $this->sendWhatsAppMessage($from, "🛒 *Votre Boutique est prête !*\n\n👉 Voici le lien exclusif de votre catalogue : {$storeUrl}\n\n*Partagez ce lien à vos clients sur Instagram, WhatsApp, ou Facebook pour recevoir des commandes directes !*", $token, $phoneNumberId);
                 } 
-                elseif ($text === 'commandes' || $text === 'dashboard') {
+                elseif ($store && ($textBody === 'commandes' || $textBody === 'dashboard')) {
                     $dashboardUrl = route('login');
                     $this->sendWhatsAppMessage($from, "📊 *Sama-Store Backoffice*\n\nPour gérer vos commandes et vérifier vos statistiques, accédez à votre espace sécurisé ici :\n👉 {$dashboardUrl}\n\n(_Identifiant : {$from}_)", $token, $phoneNumberId);
                 }
