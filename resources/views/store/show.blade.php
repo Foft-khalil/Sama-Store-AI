@@ -121,18 +121,18 @@
     </div>
 
     <!-- Checkout Modal Overhaul -->
-    <div id="checkoutModal" class="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-[100] hidden flex items-end opacity-0 transition-all duration-300">
-        <div id="checkoutModalContent" class="bg-white/95 backdrop-blur-xl w-full max-w-xl mx-auto rounded-t-[3.5rem] p-10 translate-y-full transition-transform duration-500 ease-out border-t border-white/50 shadow-2xl">
+    <div id="checkoutModal" class="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-[100] hidden flex items-end justify-center opacity-0 transition-all duration-300">
+        <div id="checkoutModalContent" class="bg-white/95 backdrop-blur-xl w-full max-w-lg mx-auto rounded-t-3xl p-6 md:p-8 translate-y-full transition-transform duration-500 ease-out shadow-2xl overflow-y-auto max-h-[90vh]">
             <!-- Modal drag handle -->
-            <div class="w-16 h-1.5 bg-slate-200 rounded-full mx-auto mb-10"></div>
+            <div class="w-12 h-1.5 bg-slate-200 rounded-full mx-auto mb-6"></div>
             
-            <div class="flex justify-between items-start mb-10">
+            <div class="flex justify-between items-start mb-6">
                 <div>
-                    <h3 class="text-3xl font-black text-slate-900 tracking-tighter italic">Finaliser la commande.</h3>
+                    <h3 class="text-2xl font-black text-slate-900 tracking-tighter italic">Finaliser la commande.</h3>
                     <p class="text-slate-500 font-bold text-xs mt-1 uppercase tracking-widest text-indigo-600" id="checkoutProductName"></p>
                 </div>
-                <button onclick="closeCheckout()" class="p-3 bg-slate-100 text-slate-400 rounded-2xl hover:bg-red-50 hover:text-red-500 transition">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M6 18L18 6M6 6l12 12"/></svg>
+                <button type="button" onclick="closeCheckout()" class="p-2 bg-slate-100 text-slate-400 rounded-xl hover:bg-red-50 hover:text-red-500 transition shrink-0 ml-4">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M6 18L18 6M6 6l12 12"/></svg>
                 </button>
             </div>
 
@@ -155,19 +155,19 @@
                     </div>
                     
                     <div>
-                        <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 ml-1">Méthode de Paiement Mobile</label>
-                        <div class="grid grid-cols-2 gap-4">
+                        <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 ml-1">Méthode de Paiement Mobile</label>
+                        <div class="grid grid-cols-2 gap-3">
                             <label class="relative cursor-pointer group">
                                 <input type="radio" name="payment_provider" value="wave" required class="peer sr-only">
-                                <div class="bg-slate-50 border-2 border-slate-50 rounded-3xl p-6 text-center peer-checked:border-indigo-600 peer-checked:bg-indigo-50/50 transition duration-300">
-                                    <div class="w-10 h-10 bg-white rounded-xl shadow-sm flex items-center justify-center mx-auto mb-3">🌊</div>
+                                <div class="bg-slate-50 border-2 border-slate-50 rounded-2xl p-4 text-center peer-checked:border-indigo-600 peer-checked:bg-indigo-50/50 transition py-5">
+                                    <div class="text-2xl mb-2">🌊</div>
                                     <span class="text-xs font-black text-slate-900 group-hover:text-indigo-600 transition">Wave</span>
                                 </div>
                             </label>
                             <label class="relative cursor-pointer group">
                                 <input type="radio" name="payment_provider" value="orange_money" required class="peer sr-only">
-                                <div class="bg-slate-50 border-2 border-slate-50 rounded-3xl p-6 text-center peer-checked:border-orange-500 peer-checked:bg-orange-50/50 transition duration-300">
-                                    <div class="w-10 h-10 bg-white rounded-xl shadow-sm flex items-center justify-center mx-auto mb-3">🍊</div>
+                                <div class="bg-slate-50 border-2 border-slate-50 rounded-2xl p-4 text-center peer-checked:border-orange-500 peer-checked:bg-orange-50/50 transition py-5">
+                                    <div class="text-2xl mb-2">🍊</div>
                                     <span class="text-xs font-black text-slate-900 group-hover:text-orange-600 transition">OM</span>
                                 </div>
                             </label>
@@ -175,13 +175,16 @@
                     </div>
                 </div>
 
-                <div class="pt-4 pb-12">
-                    <button type="submit" class="w-full bg-slate-900 text-white font-black py-6 rounded-[2rem] hover:bg-emerald-500 transition shadow-2xl shadow-slate-200 flex justify-center items-center gap-3 transform active:scale-95 group">
-                        <span>Payer <span id="checkoutPrice"></span></span>
-                        <svg class="w-5 h-5 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+                <div class="pt-2 pb-6 flex gap-3">
+                    <button type="button" onclick="closeCheckout()" class="w-1/3 bg-slate-100 text-slate-600 font-black py-4 rounded-2xl hover:bg-slate-200 transition text-sm">
+                        Retour
                     </button>
-                    <p class="text-[9px] text-center font-black text-slate-300 uppercase tracking-[0.2em] mt-6">Sama-Store AI &bull; Paiement Sécurisé 🇸🇳</p>
+                    <button type="submit" class="w-2/3 bg-slate-900 text-white font-black py-4 rounded-2xl hover:bg-emerald-500 transition shadow-xl shadow-slate-200 flex justify-center items-center gap-2 group">
+                        <span>Payer <span id="checkoutPrice"></span></span>
+                        <svg class="w-4 h-4 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+                    </button>
                 </div>
+                <p class="text-[9px] text-center font-black text-slate-300 uppercase tracking-[0.2em] -mt-4">Sama-Store AI &bull; Paiement Sécurisé 🇸🇳</p>
             </form>
         </div>
     </div>

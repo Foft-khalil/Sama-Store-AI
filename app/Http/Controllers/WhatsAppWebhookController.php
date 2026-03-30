@@ -150,7 +150,12 @@ class WhatsAppWebhookController extends Controller
             $base64Image = base64_encode($imageBytes);
             Log::info("Step 4: Image converted to Base64 (Size: " . strlen($base64Image) . " chars)");
 
-            $this->extractProductDetailsWithOpenAI($base64Image, $from);
+            // Save the image to the public disk
+            $path = "products/{$imageId}.jpg";
+            \Illuminate\Support\Facades\Storage::disk('public')->put($path, $imageBytes);
+            $imageUrl = url('storage/' . $path);
+
+            $this->extractProductDetailsWithOpenAI($base64Image, $from, $imageUrl);
 
         } catch (\Exception $e) {
             Log::error("analyzeProductImage CRITICAL ERROR: " . $e->getMessage());
@@ -161,7 +166,7 @@ class WhatsAppWebhookController extends Controller
      * Calls Groq API (Llama 3.2 90B Vision) to extract structured JSON data from product image
      * This provides a 100% free, blazingly fast alternative that works everywhere.
      */
-    protected function extractProductDetailsWithOpenAI(string $base64Image, string $from): void
+    protected function extractProductDetailsWithOpenAI(string $base64Image, string $from, string $imageUrl = null): void
     {
         Log::info("Step 5: Sending request to Groq API (Llama 3.2 Vision)...");
         try {
@@ -218,9 +223,11 @@ class WhatsAppWebhookController extends Controller
                     'category' => $productData['category'] ?? null,
                     'description' => $productData['description'] ?? null,
                     'price' => isset($productData['price']) && is_numeric($productData['price']) ? (int) $productData['price'] : null,
+                    'image_url' => $imageUrl,
+                    'is_active' => true,
                 ]);
 
-                Log::info("Step 7: SUCCESS! Product saved ID: {$product->id}");
+                Log::info("Step 7: SUCCESS! Product saved ID: {$product->id} with image {$imageUrl}");
 
                 $token = env('WHATSAPP_TOKEN');
                 $phoneNumberId = env('WHATSAPP_PHONE_NUMBER_ID');
