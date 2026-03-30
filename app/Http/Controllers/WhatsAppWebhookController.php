@@ -186,7 +186,7 @@ class WhatsAppWebhookController extends Controller
             $url = "https://api.groq.com/openai/v1/chat/completions";
 
             $response = \Illuminate\Support\Facades\Http::withToken($apiKey)->post($url, [
-                "model" => "llama-4-scout-17b-16e-instruct",
+                "model" => "meta-llama/llama-4-scout-17b-16e-instruct",
                 "messages" => [
                     [
                         "role" => "user",
