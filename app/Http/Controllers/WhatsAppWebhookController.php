@@ -234,7 +234,7 @@ class WhatsAppWebhookController extends Controller
             $token = env('WHATSAPP_TOKEN');
             $phoneNumberId = env('WHATSAPP_PHONE_NUMBER_ID');
             if ($token && $phoneNumberId) {
-                $errorMsg = "⚠️ *Erreur d'Analyse*\n\nLe service IA a répondu avec une erreur. Oups ! On travaille dessus.";
+                $errorMsg = "⚠️ *Erreur d'Analyse (DEBUG)*\n\nErreur exacte : " . $e->getMessage() . "\n\n(Envoie ça à ton développeur)";
                 $this->sendWhatsAppMessage($from, $errorMsg, $token, $phoneNumberId);
             }
         }
