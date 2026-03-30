@@ -163,8 +163,8 @@ class WhatsAppWebhookController extends Controller
                 throw new \Exception("Clé GEMINI_API_KEY absente du fichier .env");
             }
 
-            // Target Gemini 1.5 Flash Latest for the free tier
-            $url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key={$apiKey}";
+            // Target Gemini 1.5 Flash for the free tier
+            $url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={$apiKey}";
 
             $response = \Illuminate\Support\Facades\Http::post($url, [
                 "contents" => [
@@ -172,8 +172,8 @@ class WhatsAppWebhookController extends Controller
                         "parts" => [
                             ["text" => "Tu es un expert en e-commerce. Analyse cette image de produit. Extrait le nom du produit, une catégorie, une description courte et vendeuse en français, et le prix (nombre entier uniquement). Retourne UNIQUEMENT du JSON valide : {\"name\": \"...\", \"category\": \"...\", \"description\": \"...\", \"price\": 5000}"],
                             [
-                                "inline_data" => [
-                                    "mime_type" => "image/jpeg",
+                                "inlineData" => [
+                                    "mimeType" => "image/jpeg",
                                     "data" => $base64Image
                                 ]
                             ]
@@ -181,7 +181,7 @@ class WhatsAppWebhookController extends Controller
                     ]
                 ],
                 "generationConfig" => [
-                    "response_mime_type" => "application/json",
+                    "responseMimeType" => "application/json",
                 ]
             ]);
 
