@@ -163,8 +163,8 @@ class WhatsAppWebhookController extends Controller
                 throw new \Exception("Clé GEMINI_API_KEY absente du fichier .env");
             }
 
-            // Target Gemini 1.5 Flash for the free tier
-            $url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={$apiKey}";
+            // Target Gemini 1.5 Flash Latest for the free tier
+            $url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key={$apiKey}";
 
             $response = \Illuminate\Support\Facades\Http::post($url, [
                 "contents" => [
