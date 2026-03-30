@@ -190,27 +190,31 @@ class WhatsAppWebhookController extends Controller
             
             Log::info("AI Product Analysis Result for {$from}: ", $productData ?? []);
 
-            if (is_array($productData)) {
-                $store = \App\Models\Store::firstOrCreate(
-                    ['whatsapp_number' => $from],
-                    [
-                        'name' => "Boutique de {$from}",
-                        'trial_ends_at' => now()->addDays(7)
-                    ]
-                );
-
-                $product = $store->products()->create([
-                    'name' => $productData['name'] ?? 'Produit',
-                    'category' => $productData['category'] ?? null,
-                    'description' => $productData['description'] ?? null,
-                    'price' => isset($productData['price']) && is_numeric($productData['price']) ? (int) $productData['price'] : null,
-                ]);
-
                 Log::info("Produit sauvegardé : Boutique {$store->id} - Produit ID: {$product->id}");
+
+                // 4. Envoyer le lien de confirmation au vendeur
+                $token = env('WHATSAPP_TOKEN');
+                $phoneNumberId = env('WHATSAPP_PHONE_NUMBER_ID');
+                $storeUrl = url("/s/" . ($store->slug ?? $store->whatsapp_number));
+
+                if ($token && $phoneNumberId) {
+                    $confirmMsg = "✅ *Produit Ajouté avec Succès !*\n\n";
+                    $confirmMsg .= "📦 *Nom :* " . ($product->name ?? 'Produit') . "\n";
+                    if ($product->price) $confirmMsg .= "💰 *Prix :* {$product->price} FCFA\n";
+                    $confirmMsg .= "\n✨ *Votre boutique est en ligne !* Vous pouvez voir votre catalogue ici :\n👉 {$storeUrl}\n\n📸 _Envoyez une autre photo pour ajouter un nouveau produit !_";
+                    
+                    $this->sendWhatsAppMessage($from, $confirmMsg, $token, $phoneNumberId);
+                }
             }
 
         } catch (\Exception $e) {
             Log::error("OpenAI Error: " . $e->getMessage());
+            // Optionnel : Informer l'utilisateur de l'erreur
+            $token = env('WHATSAPP_TOKEN');
+            $phoneNumberId = env('WHATSAPP_PHONE_NUMBER_ID');
+            if ($token && $phoneNumberId) {
+                $this->sendWhatsAppMessage($from, "⚠️ *Désolé, je n'ai pas pu analyser cette image.*\n\nAssurez-vous de m'avoir envoyé la photo d'un produit seul et bien visible. Réessayez !", $token, $phoneNumberId);
+            }
         }
     }
 
