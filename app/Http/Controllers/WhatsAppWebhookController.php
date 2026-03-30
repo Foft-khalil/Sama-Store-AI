@@ -151,47 +151,52 @@ class WhatsAppWebhookController extends Controller
     }
 
     /**
-     * Calls Google Gemini API (1.5 Flash) to extract structured JSON data from product image
-     * This replaces the paid OpenAI model with a free alternative.
+     * Calls Groq API (Llama 3.2 90B Vision) to extract structured JSON data from product image
+     * This provides a 100% free, blazingly fast alternative that works everywhere.
      */
     protected function extractProductDetailsWithOpenAI($base64Image, $from)
     {
-        Log::info("Step 5: Sending request to Google Gemini API...");
+        Log::info("Step 5: Sending request to Groq API (Llama 3.2 Vision)...");
         try {
-            $apiKey = env('GEMINI_API_KEY');
+            $apiKey = env('GROQ_API_KEY');
             if (!$apiKey) {
-                throw new \Exception("Clé GEMINI_API_KEY absente du fichier .env");
+                throw new \Exception("Clé GROQ_API_KEY absente du fichier .env");
             }
 
-            // Target Gemini 1.5 Flash for the free tier
-            $url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={$apiKey}";
+            // Target Groq's OpenAI-compatible endpoint
+            $url = "https://api.groq.com/openai/v1/chat/completions";
 
-            $response = \Illuminate\Support\Facades\Http::post($url, [
-                "contents" => [
+            $response = \Illuminate\Support\Facades\Http::withToken($apiKey)->post($url, [
+                "model" => "llama-3.2-90b-vision-preview",
+                "messages" => [
                     [
-                        "parts" => [
-                            ["text" => "Tu es un expert en e-commerce. Analyse cette image de produit. Extrait le nom du produit, une catégorie, une description courte et vendeuse en français, et le prix (nombre entier uniquement). Retourne UNIQUEMENT du JSON valide : {\"name\": \"...\", \"category\": \"...\", \"description\": \"...\", \"price\": 5000}"],
+                        "role" => "user",
+                        "content" => [
                             [
-                                "inlineData" => [
-                                    "mimeType" => "image/jpeg",
-                                    "data" => $base64Image
+                                "type" => "text",
+                                "text" => "Tu es un expert en e-commerce. Analyse cette image de produit. Extrait le nom du produit, une catégorie, une description courte et vendeuse en français, et le prix (nombre entier uniquement). Retourne UNIQUEMENT du JSON valide : {\"name\": \"...\", \"category\": \"...\", \"description\": \"...\", \"price\": 5000}"
+                            ],
+                            [
+                                "type" => "image_url",
+                                "image_url" => [
+                                    "url" => "data:image/jpeg;base64,{$base64Image}"
                                 ]
                             ]
                         ]
                     ]
                 ],
-                "generationConfig" => [
-                    "responseMimeType" => "application/json",
-                ]
+                "response_format" => ["type" => "json_object"],
+                "max_tokens" => 800,
+                "temperature" => 0.5
             ]);
 
             if (!$response->successful()) {
-                throw new \Exception("Gemini API Error: " . $response->body());
+                throw new \Exception("Groq API Error: " . $response->body());
             }
 
             $result = $response->json();
-            $jsonString = $result['candidates'][0]['content']['parts'][0]['text'] ?? '{}';
-            Log::info("Step 6: Gemini Response received: " . $jsonString);
+            $jsonString = $result['choices'][0]['message']['content'] ?? '{}';
+            Log::info("Step 6: Groq Response received: " . $jsonString);
             
             $productData = json_decode(trim($jsonString), true);
             
@@ -225,11 +230,11 @@ class WhatsAppWebhookController extends Controller
             }
 
         } catch (\Exception $e) {
-            Log::error("Step 5/6 ERROR: Gemini API failed: " . $e->getMessage());
+            Log::error("Step 5/6 ERROR: Groq API failed: " . $e->getMessage());
             $token = env('WHATSAPP_TOKEN');
             $phoneNumberId = env('WHATSAPP_PHONE_NUMBER_ID');
             if ($token && $phoneNumberId) {
-                $errorMsg = "⚠️ *Erreur d'Analyse (Gemini)*\n\nLe service a répondu : \"" . $e->getMessage() . "\".\n\nVérifiez votre clé API Gemini ou réessayez.";
+                $errorMsg = "⚠️ *Erreur d'Analyse*\n\nLe service IA a répondu avec une erreur. Oups ! On travaille dessus.";
                 $this->sendWhatsAppMessage($from, $errorMsg, $token, $phoneNumberId);
             }
         }
