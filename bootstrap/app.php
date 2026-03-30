@@ -13,8 +13,7 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware) {
         $middleware->validateCsrfTokens(except: [
-            '/whatsapp/webhook',
-            '/wave/webhook',
+            // API routes are automatically exempt
         ]);
 
         $middleware->alias([

@@ -44,8 +44,7 @@ Route::middleware('subscription')->group(function () {
     Route::post('/dashboard/pay/wave', [WaveController::class, 'initiatePayment'])->name('pay.wave');
 });
 
-// Wave Webhook (Public, excluded from CSRF)
-Route::post('/wave/webhook', [WaveController::class, 'handleWebhook'])->name('wave.webhook');
+// Wave Webhook (Moved to API)
 
 // Front-end Stores routing
 Route::middleware('subscription')->group(function () {
@@ -53,6 +52,4 @@ Route::middleware('subscription')->group(function () {
 });
 Route::post('/s/{slug}/product/{productId}/checkout', [OrderController::class, 'store'])->name('order.store');
 
-// WhatsApp Webhook Routes
-Route::get('/whatsapp/webhook', [WhatsAppWebhookController::class, 'verifyWebhook']);
-Route::post('/whatsapp/webhook', [WhatsAppWebhookController::class, 'handleWebhook']);
+// WhatsApp Webhook (Moved to API)
