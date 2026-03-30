@@ -117,37 +117,36 @@ class WhatsAppWebhookController extends Controller
      */
     protected function analyzeProductImage($imageId, $from)
     {
+        Log::info("Step 1: Starting image analysis for ID: {$imageId}");
         try {
-            // 1. Get Image URL from WhatsApp Media API
-            $token = env('WHATSAPP_TOKEN', 'your_whatsapp_bearer_token'); 
+            $token = env('WHATSAPP_TOKEN'); 
             $mediaEndpoint = "https://graph.facebook.com/v19.0/{$imageId}";
 
-            /** @var \Illuminate\Http\Client\Response $response */
+            Log::info("Step 2: Fetching media URL from Meta API...");
             $response = \Illuminate\Support\Facades\Http::withToken($token)->get($mediaEndpoint);
 
             if (!$response->successful()) {
-                Log::error("Failed to get media URL from WhatsApp: " . $response->body());
+                Log::error("Step 2 ERROR: Meta API rejected media ID. Status: " . $response->status() . " Response: " . $response->body());
                 return;
             }
 
             $mediaUrl = $response->json('url');
+            Log::info("Step 3: Media URL found: {$mediaUrl}. Downloading...");
 
-            // 2. Download Image File Content
-            /** @var \Illuminate\Http\Client\Response $imageResponse */
             $imageResponse = \Illuminate\Support\Facades\Http::withToken($token)->get($mediaUrl);
             if (!$imageResponse->successful()) {
-                Log::error("Failed to download image from WhatsApp.");
+                Log::error("Step 3 ERROR: Failed to download binary from Meta URL.");
                 return;
             }
 
             $imageBytes = $imageResponse->body();
             $base64Image = base64_encode($imageBytes);
+            Log::info("Step 4: Image converted to Base64 (Size: " . strlen($base64Image) . " chars)");
 
-            // 3. Send to OpenAI Vision to Extract Product Details
             $this->extractProductDetailsWithOpenAI($base64Image, $from);
 
         } catch (\Exception $e) {
-            Log::error("Error analyzing product image: " . $e->getMessage());
+            Log::error("analyzeProductImage CRITICAL ERROR: " . $e->getMessage());
         }
     }
 
@@ -156,8 +155,13 @@ class WhatsAppWebhookController extends Controller
      */
     protected function extractProductDetailsWithOpenAI($base64Image, $from)
     {
-        Log::info("Sending Base64 Image to OpenAI for user {$from}...");
+        Log::info("Step 5: Sending request to OpenAI GPT-4o Vision...");
         try {
+            $apiKey = env('OPENAI_API_KEY');
+            if (!$apiKey || $apiKey === 'votre_cle_api_openai_ici') {
+                throw new \Exception("Clé OpenAI absente ou non configurée dans le fichier .env");
+            }
+
             $response = \OpenAI\Laravel\Facades\OpenAI::chat()->create([
                 'model' => 'gpt-4o',
                 'messages' => [
@@ -166,7 +170,7 @@ class WhatsAppWebhookController extends Controller
                         'content' => [
                             [
                                 'type' => 'text',
-                                'text' => "Tu es un expert en e-commerce. Analyse cette image de produit photographiée par un vendeur informel. Extrait le nom du produit, une catégorie approximative, génère une description très vendeuse en français, et extrait le prix s'il est visible sur l'image (sinon met null). Retourne UNIQUEMENT une structure JSON stricte : {\"name\": \"...\", \"category\": \"...\", \"description\": \"...\", \"price\": null}"
+                                'text' => "Tu es un expert en e-commerce. Analyse cette image de produit. Extrait le nom du produit, une catégorie, une description en français, et le prix (nombre entier uniquement). Retourne UNIQUEMENT du JSON : {\"name\": \"...\", \"category\": \"...\", \"description\": \"...\", \"price\": 1000}"
                             ],
                             [
                                 'type' => 'image_url',
@@ -177,25 +181,19 @@ class WhatsAppWebhookController extends Controller
                         ]
                     ]
                 ],
-                // Increase token limit for comprehensive descriptions
-                'max_tokens' => 800,
+                'max_tokens' => 500,
             ]);
 
             $jsonString = $response->choices[0]->message->content;
+            Log::info("Step 6: OpenAI Response received: " . $jsonString);
             
-            // Clean potential markdown tags from response
             $jsonString = str_replace(['```json', '```'], '', $jsonString);
-            
             $productData = json_decode(trim($jsonString), true);
             
-            Log::info("AI Product Analysis Result for {$from}: ", $productData ?? []);
             if (is_array($productData)) {
                 $store = \App\Models\Store::firstOrCreate(
                     ['whatsapp_number' => $from],
-                    [
-                        'name' => "Boutique de {$from}",
-                        'trial_ends_at' => now()->addDays(7)
-                    ]
+                    ['name' => "Boutique de {$from}", 'trial_ends_at' => now()->addDays(7)]
                 );
 
                 $product = $store->products()->create([
@@ -205,9 +203,8 @@ class WhatsAppWebhookController extends Controller
                     'price' => isset($productData['price']) && is_numeric($productData['price']) ? (int) $productData['price'] : null,
                 ]);
 
-                Log::info("Produit sauvegardé : Boutique {$store->id} - Produit ID: {$product->id}");
+                Log::info("Step 7: SUCCESS! Product saved ID: {$product->id}");
 
-                // 4. Envoyer le lien de confirmation au vendeur
                 $token = env('WHATSAPP_TOKEN');
                 $phoneNumberId = env('WHATSAPP_PHONE_NUMBER_ID');
                 $storeUrl = url("/s/" . ($store->slug ?? $store->whatsapp_number));
@@ -216,19 +213,19 @@ class WhatsAppWebhookController extends Controller
                     $confirmMsg = "✅ *Produit Ajouté avec Succès !*\n\n";
                     $confirmMsg .= "📦 *Nom :* " . ($product->name ?? 'Produit') . "\n";
                     if ($product->price) $confirmMsg .= "💰 *Prix :* {$product->price} FCFA\n";
-                    $confirmMsg .= "\n✨ *Votre boutique est en ligne !* Vous pouvez voir votre catalogue ici :\n👉 {$storeUrl}\n\n📸 _Envoyez une autre photo pour ajouter un nouveau produit !_";
+                    $confirmMsg .= "\n✨ *Votre boutique est en ligne !* :\n👉 {$storeUrl}\n\n📸 _Envoyez une autre photo !_";
                     
                     $this->sendWhatsAppMessage($from, $confirmMsg, $token, $phoneNumberId);
                 }
             }
 
         } catch (\Exception $e) {
-            Log::error("OpenAI Error: " . $e->getMessage());
-            // Optionnel : Informer l'utilisateur de l'erreur
+            Log::error("Step 5/6 ERROR: OpenAI API failed: " . $e->getMessage());
             $token = env('WHATSAPP_TOKEN');
             $phoneNumberId = env('WHATSAPP_PHONE_NUMBER_ID');
             if ($token && $phoneNumberId) {
-                $this->sendWhatsAppMessage($from, "⚠️ *Désolé, je n'ai pas pu analyser cette image.*\n\nAssurez-vous de m'avoir envoyé la photo d'un produit seul et bien visible. Réessayez !", $token, $phoneNumberId);
+                $errorMsg = "⚠️ *Erreur d'Analyse*\n\nLe service OpenAI a répondu : \"" . $e->getMessage() . "\".\n\nVérifiez votre crédit OpenAI ou réessayez plus tard.";
+                $this->sendWhatsAppMessage($from, $errorMsg, $token, $phoneNumberId);
             }
         }
     }
