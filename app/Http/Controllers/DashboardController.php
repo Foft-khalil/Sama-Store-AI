@@ -8,6 +8,7 @@ use App\Models\Order;
 use App\Models\Product;
 use Illuminate\Support\Facades\Session;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Hash;
 
 class DashboardController extends Controller
 {
@@ -19,26 +20,71 @@ class DashboardController extends Controller
         return view('auth.login');
     }
 
+    public function showRegister()
+    {
+        if (Session::has('store_id')) {
+            return redirect()->route('dashboard');
+        }
+        return view('auth.register');
+    }
+
+    public function register(Request $request)
+    {
+        $request->validate([
+            'whatsapp_number' => 'required|string',
+            'password'        => 'required|string|min:6|confirmed',
+        ], [
+            'password.confirmed' => 'Les mots de passe ne correspondent pas.',
+            'password.min'       => 'Le mot de passe doit contenir au moins 6 caractères.',
+        ]);
+
+        $number = preg_replace('/[^0-9]/', '', $request->whatsapp_number);
+
+        // Check if number already registered WITH a password (already claimed)
+        $existing = Store::where('whatsapp_number', $number)->whereNotNull('password')->first();
+        if ($existing) {
+            return back()->with('error', 'Ce numéro est déjà enregistré. Connectez-vous avec votre mot de passe.');
+        }
+
+        // If store was auto-created by WhatsApp bot (no password yet), claim it
+        $store = Store::where('whatsapp_number', $number)->whereNull('password')->first();
+
+        if ($store) {
+            // Claim the existing store
+            $store->update(['password' => Hash::make($request->password)]);
+        } else {
+            // Brand new store
+            $store = Store::create([
+                'whatsapp_number' => $number,
+                'name'            => 'Ma Boutique ' . substr($number, -4),
+                'slug'            => 'store-' . $number,
+                'password'        => Hash::make($request->password),
+                'trial_ends_at'   => now()->addDays(7),
+                'is_subscribed'   => false,
+            ]);
+        }
+
+        Session::put('store_id', $store->id);
+        return redirect()->route('dashboard')->with('success', 'Bienvenue ! Votre boutique sécurisée est prête.');
+    }
+
     public function login(Request $request)
     {
         $request->validate([
-            'whatsapp_number' => 'required|string'
+            'whatsapp_number' => 'required|string',
+            'password'        => 'required|string',
         ]);
 
-        // Nettoyer le numéro (enlever les + et espaces)
         $number = preg_replace('/[^0-9]/', '', $request->whatsapp_number);
 
-        $store = Store::where('whatsapp_number', $number)->first();
+        $store = Store::where('whatsapp_number', $number)->whereNotNull('password')->first();
 
         if (!$store) {
-            // Auto-créer la boutique si c'est la première fois
-            $store = Store::create([
-                'whatsapp_number' => $number,
-                'name' => "Ma Boutique " . substr($number, -4),
-                'slug' => 'store-' . $number,
-                'trial_ends_at' => now()->addDays(7),
-                'is_subscribed' => false
-            ]);
+            return back()->with('error', 'Aucun compte trouvé pour ce numéro. Veuillez vous inscrire d\'abord.');
+        }
+
+        if (!Hash::check($request->password, $store->password)) {
+            return back()->with('error', 'Mot de passe incorrect. Réessayez.');
         }
 
         Session::put('store_id', $store->id);

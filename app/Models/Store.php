@@ -6,7 +6,9 @@ use Illuminate\Database\Eloquent\Model;
 
 class Store extends Model
 {
-    protected $fillable = ['whatsapp_number', 'name', 'slug', 'payment_gateway', 'trial_ends_at', 'is_subscribed'];
+    protected $fillable = ['whatsapp_number', 'name', 'slug', 'password', 'payment_gateway', 'trial_ends_at', 'is_subscribed'];
+
+    protected $hidden = ['password'];
 
     protected $casts = [
         'trial_ends_at' => 'datetime',

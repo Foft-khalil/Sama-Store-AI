@@ -15,7 +15,8 @@ Route::get('/', function () {
 // Authentication Vendeur
 Route::get('/login', [DashboardController::class, 'showLogin'])->name('login');
 Route::post('/login', [DashboardController::class, 'login'])->name('login.post');
-Route::get('/register', [DashboardController::class, 'showLogin'])->name('register'); // Redirige vers login pour simplifier
+Route::get('/register', [DashboardController::class, 'showRegister'])->name('register');
+Route::post('/register', [DashboardController::class, 'register'])->name('register.post');
 Route::post('/logout', [DashboardController::class, 'logout'])->name('logout');
 
 // Dashboard Vendeur
