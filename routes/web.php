@@ -52,4 +52,13 @@ Route::middleware('subscription')->group(function () {
 });
 Route::post('/s/{slug}/product/{productId}/checkout', [OrderController::class, 'store'])->name('order.store');
 
+// Super Admin
+Route::prefix('s-admin')->group(function () {
+    Route::get('/', [\App\Http\Controllers\AdminController::class, 'showLogin'])->name('admin.login');
+    Route::post('/login', [\App\Http\Controllers\AdminController::class, 'login'])->name('admin.login.post');
+    Route::post('/logout', [\App\Http\Controllers\AdminController::class, 'logout'])->name('admin.logout');
+    Route::get('/dashboard', [\App\Http\Controllers\AdminController::class, 'dashboard'])->name('admin.dashboard');
+    Route::post('/stores/{id}/delete', [\App\Http\Controllers\AdminController::class, 'deleteStore'])->name('admin.stores.delete');
+});
+
 // WhatsApp Webhook (Moved to API)
