@@ -13,6 +13,7 @@ Route::get('/user', function (Request $request) {
 // WhatsApp Webhook Routes
 Route::get('/whatsapp/webhook', [WhatsAppWebhookController::class, 'verifyWebhook']);
 Route::post('/whatsapp/webhook', [WhatsAppWebhookController::class, 'handleWebhook']);
+Route::get('/verify-config', [WhatsAppWebhookController::class, 'verifyConfig']);
 
 // Wave Webhook Routes
 Route::post('/wave/webhook', [WaveController::class, 'handleWebhook']);

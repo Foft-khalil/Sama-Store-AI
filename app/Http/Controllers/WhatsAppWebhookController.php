@@ -18,7 +18,7 @@ class WhatsAppWebhookController extends Controller
         $token = $request->query('hub_verify_token');
         $challenge = $request->query('hub_challenge');
 
-        $verifyToken = env('WHATSAPP_VERIFY_TOKEN', 'sama_store_secret_token');
+        $verifyToken = config('services.whatsapp.verify_token');
         
         Log::info("WhatsApp Webhook Verification Request", [
             'mode' => $mode,
@@ -88,8 +88,8 @@ class WhatsAppWebhookController extends Controller
             Log::info("Text message from {$from}: {$textBody}");
             
             $store = \App\Models\Store::where('whatsapp_number', $from)->first();
-            $token = env('WHATSAPP_TOKEN');
-            $phoneNumberId = env('WHATSAPP_PHONE_NUMBER_ID');
+            $token = config('services.whatsapp.token');
+            $phoneNumberId = config('services.whatsapp.phone_number_id');
 
             if ($store && $token && $phoneNumberId) {
                 if ($textBody === 'catalogue' || $textBody === 'lien' || $textBody === 'boutique') {
@@ -126,8 +126,8 @@ class WhatsAppWebhookController extends Controller
     {
         Log::info("Step 1: Starting image analysis for ID: {$imageId}");
         try {
-            $token = env('WHATSAPP_TOKEN'); 
-            $mediaEndpoint = "https://graph.facebook.com/v19.0/{$imageId}";
+            $token = config('services.whatsapp.token'); 
+            $mediaEndpoint = "https://graph.facebook.com/v20.0/{$imageId}";
 
             Log::info("Step 2: Fetching media URL from Meta API...");
             $response = \Illuminate\Support\Facades\Http::withToken($token)->get($mediaEndpoint);
@@ -170,7 +170,7 @@ class WhatsAppWebhookController extends Controller
     {
         Log::info("Step 5: Sending request to Groq API (Llama 3.2 Vision)...");
         try {
-            $apiKey = env('GROQ_API_KEY');
+            $apiKey = config('services.groq.api_key');
             if (!$apiKey) {
                 throw new \Exception("Clé GROQ_API_KEY absente du fichier .env");
             }
@@ -229,8 +229,8 @@ class WhatsAppWebhookController extends Controller
 
                 Log::info("Step 7: SUCCESS! Product saved ID: {$product->id} with image {$imageUrl}");
 
-                $token = env('WHATSAPP_TOKEN');
-                $phoneNumberId = env('WHATSAPP_PHONE_NUMBER_ID');
+                $token = config('services.whatsapp.token');
+                $phoneNumberId = config('services.whatsapp.phone_number_id');
                 $storeUrl = url("/s/" . ($store->slug ?? $store->whatsapp_number));
 
                 if ($token && $phoneNumberId) {
@@ -245,13 +245,33 @@ class WhatsAppWebhookController extends Controller
 
         } catch (\Exception $e) {
             Log::error("Step 5/6 ERROR: Groq API failed: " . $e->getMessage());
-            $token = env('WHATSAPP_TOKEN');
-            $phoneNumberId = env('WHATSAPP_PHONE_NUMBER_ID');
+            $token = config('services.whatsapp.token');
+            $phoneNumberId = config('services.whatsapp.phone_number_id');
             if ($token && $phoneNumberId) {
                 $errorMsg = "⚠️ *Erreur d'Analyse (DEBUG)*\n\nErreur exacte : " . $e->getMessage() . "\n\n(Envoie ça à ton développeur)";
                 $this->sendWhatsAppMessage($from, $errorMsg, $token, $phoneNumberId);
             }
         }
+    }
+
+    /**
+     * Diagnostic Route to verify if AlwaysData reads the .env correctly
+     */
+    public function verifyConfig()
+    {
+        $token = config('services.whatsapp.token');
+        $phoneId = config('services.whatsapp.phone_number_id');
+        $groqKey = config('services.groq.api_key');
+
+        $status = [
+            'WHATSAPP_TOKEN' => $token ? '✅ CHARGÉ (' . substr($token, 0, 5) . '...)' : '❌ VIDE',
+            'WHATSAPP_PHONE_ID' => $phoneId ? '✅ CHARGÉ (' . $phoneId . ')' : '❌ VIDE',
+            'GROQ_API_KEY' => $groqKey ? '✅ CHARGÉ (' . substr($groqKey, 0, 5) . '...)' : '❌ VIDE',
+            'APP_URL' => url('/'),
+            'MANUAL_CHECK' => 'Si les clés sont VIDEs sur AlwaysData, lancez: php artisan config:cache'
+        ];
+
+        return response()->json($status);
     }
 
     /**
@@ -261,7 +281,7 @@ class WhatsAppWebhookController extends Controller
     {
         try {
             $response = \Illuminate\Support\Facades\Http::withToken($token)
-                ->post("https://graph.facebook.com/v19.0/{$phoneNumberId}/messages", [
+                ->post("https://graph.facebook.com/v20.0/{$phoneNumberId}/messages", [
                     'messaging_product' => 'whatsapp',
                     'to' => $to,
                     'type' => 'text',
